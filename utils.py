@@ -1,6 +1,7 @@
 import numpy as np
 import chess
 import time
+import chess.pgn
 
 # A Collection of helper functions for various tasks
 def square_to_int(square):
@@ -157,14 +158,15 @@ def translate_array_to_board(board_array):
     return chess.Board(fen=fen_pos_str)
 
 class Bots_Board:
-    def __init__(self,start_fen=None):
+    def __init__(self,start_fen=None,training_read=False):
         if start_fen: #if given a starting position, initialize the board with that
             self.board = chess.Board(fen=start_fen)
         else: #else make it the default board
             self.board = chess.Board()
         self.board_array=translate_board_to_array(self.board)
+        self.record = np.expand_dims(self.board_array,1)
     
-    def evolve_board(self,move):
+    def evolve_board(self,move,move_type="uci"):
         """
         A helper function to evolve the board without the baggage in chessbattle, for use when constructing decision trees
         -----------------
@@ -176,14 +178,22 @@ class Bots_Board:
         Outputs:
         updates self.board and self.board_array with this move
         """
-        if chess.Move.from_uci(move) in self.board.legal_moves: #best hope it's a legal move or this gets screwy
-            self.board.push(chess.Move.from_uci(move)) 
+        if move_type == "uci":
+            if chess.Move.from_uci(move) in self.board.legal_moves: #best hope it's a legal move or this gets screwy
+                self.board.push(chess.Move.from_uci(move)) 
+            else:
+                return False
+            self.board_array = translate_board_to_array(self.board)
+            return True
+        elif move_type == "std":
+            if move in self.board.legal_moves:
+                self.board.push(move)
+            else:
+                return False
         else:
             return False
-        self.board_array = translate_board_to_array(self.board)
-        return True
     
-    def read_game(self,gamefile,delay=None,print_for_human=False):
+    def read_game(self,game_file,file_type="Nick",delay=0,print_for_human=False):
         """ 
         for reading a game file of the type Nicholas provided (see chessbattle/stockfish_v_stockfish.txt)
         TODO adapt as well for other file types
@@ -200,21 +210,32 @@ class Bots_Board:
         evolves self.board
         if print_for_human it shows these evolutions
         """
-        with open(gamefile,'r') as f:
-            game_file_lines = f.readlines()
-        for line in game_file_lines:
-            if "| move" in line:
-                move = line.split(" ")[-1].split(":")[-1].strip()
-            else:
-                continue
-            self.evolve_board(move)
-            if print_for_human:
-                print(self.board)
-                print("\n")
-            if delay:
-                time.sleep(delay)
-
-
+        if file_type=="Nick":
+            with open(game_file,'r') as f:
+                game_file_lines = f.readlines()
+            for line in game_file_lines:
+                if "| move" in line:
+                    move = line.split(" ")[-1].split(":")[-1].strip()
+                else:
+                    continue
+                self.evolve_board(move)
+                if print_for_human:
+                    print(self.board)
+                    print("\n")
+                if delay:
+                    time.sleep(delay)
+                self.record = np.concatenate((self.record, np.expand_dims(self.board_array,1)),axis=1)
+        elif file_type == "PGN":
+            pgn = open(game_file)
+            game = chess.pgn.read_game(pgn)
+            for move in game.mainline_moves():
+                self.evolve_board(move,move_type="std")
+                if print_for_human:
+                    print(self.board)
+                    print("\n")
+                if delay:
+                    time.sleep(delay)
+                self.record = np.concatenate((self.record, np.expand_dims(self.board_array,1)),axis=1)
 
 
 
@@ -242,4 +263,5 @@ print(square_to_int("h1"))
 #print(test)
 #print(test.fen)
 test = Bots_Board()
-test.read_game("stockfish_v_stockfish.txt",print_for_human=True,delay=5)
+#test.read_game("stockfish_v_stockfish.txt",print_for_human=False,delay=0)
+test.read_game("2005-12.bare.[534].pgn",print_for_human=True,delay=5,file_type="PGN")
