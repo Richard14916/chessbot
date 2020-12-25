@@ -1,6 +1,6 @@
 import numpy as np
 import chess
-import sys
+import time
 
 # A Collection of helper functions for various tasks
 def square_to_int(square):
@@ -40,7 +40,6 @@ def int_to_square(sqint):
     square = the square name we put in
     """
     return chess.SQUARE_NAMES[sqint-1]
-    
 
 def translate_board_to_array(board):
     """
@@ -157,30 +156,72 @@ def translate_array_to_board(board_array):
     fen_pos_str += " ".join([str(board_array[6]),str(board_array[7])])
     return chess.Board(fen=fen_pos_str)
 
+class Bots_Board:
+    def __init__(self,start_fen=None):
+        if start_fen: #if given a starting position, initialize the board with that
+            self.board = chess.Board(fen=start_fen)
+        else: #else make it the default board
+            self.board = chess.Board()
+        self.board_array=translate_board_to_array(self.board)
+    
+    def evolve_board(self,move):
+        """
+        A helper function to evolve the board without the baggage in chessbattle, for use when constructing decision trees
+        -----------------
+        Inputs:
+        board_array - a board_array
+        move - the chosen move in uci
+
+        --------
+        Outputs:
+        updates self.board and self.board_array with this move
+        """
+        if chess.Move.from_uci(move) in self.board.legal_moves: #best hope it's a legal move or this gets screwy
+            self.board.push(chess.Move.from_uci(move)) 
+        else:
+            return False
+        self.board_array = translate_board_to_array(self.board)
+        return True
+    
+    def read_game(self,gamefile,delay=None,print_for_human=False):
+        """ 
+        for reading a game file of the type Nicholas provided (see chessbattle/stockfish_v_stockfish.txt)
+        TODO adapt as well for other file types
+        TODO build an array of the board states with associated win/draw/loss value
+        TODO include info about time controls as well
+        --------------
+        Inputs:
+        gamefile = a file with the progression of a game in it
+        delay = delay in evolving and printing, to make it watchable for a human; int of seconds to delay
+        print_for_human = if true, print the board for human use
+
+        -------------
+        Outputs:
+        evolves self.board
+        if print_for_human it shows these evolutions
+        """
+        with open(gamefile,'r') as f:
+            game_file_lines = f.readlines()
+        for line in game_file_lines:
+            if "| move" in line:
+                move = line.split(" ")[-1].split(":")[-1].strip()
+            else:
+                continue
+            self.evolve_board(move)
+            if print_for_human:
+                print(self.board)
+                print("\n")
+            if delay:
+                time.sleep(delay)
 
 
-def evolve_board(board_array,move):
-    """
-    A helper function to evolve the board without the baggage in chessbattle, for use when constructing decision trees
-    -----------------
-    Inputs:
-    board_array - a board_array
-    move - the chosen move in uci
 
-    --------
-    Outputs:
-    new_board = a new board_array object with the move applied
-    """
-    board = translate_array_to_board(board_array)
-    if chess.Move.from_uci(move) in board.legal_moves:
-        board.push(chess.Move.from_uci(move))
-    else:
-        print("failed to evolve move, is this a valid move")
-        print(board.legal_moves)
-        sys.exit(7)
-    board_array = translate_board_to_array(board)
-    return board_array
 
+
+
+
+
+    
 
 
 #Test Cases
@@ -192,11 +233,13 @@ print(square_to_int("h3"))
 print(square_to_int("a1"))
 print(square_to_int("h1"))
 """
-test_board = chess.Board()
-test = translate_board_to_array(test_board)
-print(translate_array_to_board(test))
-test_array = evolve_board(test,"e2e4")
-print(test_array)
-test = translate_array_to_board(test_array)
-print(test)
-print(test.fen)
+#test_board = chess.Board()
+#test = translate_board_to_array(test_board)
+#print(translate_array_to_board(test))
+#test_array = evolve_board(test,"e2e4")
+#print(test_array)
+#test = translate_array_to_board(test_array)
+#print(test)
+#print(test.fen)
+test = Bots_Board()
+test.read_game("stockfish_v_stockfish.txt",print_for_human=True,delay=5)
