@@ -305,19 +305,22 @@ class Training_Data_From_PGN:
         self.pgn_game_list
         ----------------
         Outputs:
-        self.record_meta_array = a meta array of all of 
+        self.record_meta_array = a meta array of all of the game states. It doesn't care about the relationship between these 
+        game states, i.e. it doesn't distinguish whether adjacent states are from the same game or not (though this could be implemented
+        downstream by recognizing the starting board as a special state
+        self.result_meta_list = a meta list, containing the results of each game, times the number of moves. Thus, the results match exactly
+        to the game states that ultimately generate them and len(self.result_meta_list) == self.record_meta_array.shape[1]
 
         """
-
         for i,game in enumerate(self.pgn_game_list):
             game_board = Bots_Board()
             result = game_board.evolve_from_pgn(game)
             if i == 0:
-                self.record_meta_array = np.expand_dims(game_board.record,2)
-                self.result_meta_list = [result]
+                self.record_meta_array = game_board.record
+                self.result_meta_list = [result]*game_board.record.shape[1]
             else:
-                self.record_meta_array = np.concatenate((self.record_meta_array,np.expand_dims(game_board.record,2)),axis=2)
-                self.result_meta_list += [result]
+                self.record_meta_array = np.concatenate((self.record_meta_array,game_board.record),axis=1)
+                self.result_meta_list += [result]*game_board.record.shape[1]
 
 
 
@@ -358,9 +361,7 @@ print(test_pgn_1_board.victory)
 test_pgn_2_board.evolve_from_pgn(test_pgn_2,print_for_human=True,delay=0)
 print(test_pgn_2_board.victory)
 """
-
 test = Training_Data_From_PGN("2005-12.bare.[534].pgn")
 test.produce_record_data()
-print(test.record_meta_array)
 print(test.record_meta_array.shape)
-print(test.result_meta_list)
+print(len(test.result_meta_list))
