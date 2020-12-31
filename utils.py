@@ -193,7 +193,7 @@ class Bots_Board:
         else:
             return False
     
-    def read_game(self,game_file,file_type="Nick",delay=0,print_for_human=False):
+    def read_game_competition(self,game_file,delay=0,print_for_human=False):
         """ 
         for reading a game file of the type Nicholas provided (see chessbattle/stockfish_v_stockfish.txt)
         TODO adapt as well for other file types
@@ -210,33 +210,72 @@ class Bots_Board:
         evolves self.board
         if print_for_human it shows these evolutions
         """
-        if file_type=="Nick":
-            with open(game_file,'r') as f:
-                game_file_lines = f.readlines()
-            for line in game_file_lines:
-                if "| move" in line:
-                    move = line.split(" ")[-1].split(":")[-1].strip()
-                else:
-                    continue
-                self.evolve_board(move)
-                if print_for_human:
-                    print(self.board)
-                    print("\n")
-                if delay:
-                    time.sleep(delay)
-                self.record = np.concatenate((self.record, np.expand_dims(self.board_array,1)),axis=1)
-        elif file_type == "PGN":
-            pgn = open(game_file)
-            game = chess.pgn.read_game(pgn)
-            for move in game.mainline_moves():
-                self.evolve_board(move,move_type="std")
-                if print_for_human:
-                    print(self.board)
-                    print("\n")
-                if delay:
-                    time.sleep(delay)
-                self.record = np.concatenate((self.record, np.expand_dims(self.board_array,1)),axis=1)
+        with open(game_file,'r') as f:
+            game_file_lines = f.readlines()
+        for line in game_file_lines:
+            if "| move" in line:
+                move = line.split(" ")[-1].split(":")[-1].strip()
+            else:
+                continue
+            self.evolve_board(move)
+            if print_for_human:
+                print(self.board)
+                print("\n")
+            if delay:
+                time.sleep(delay)
+            self.record = np.concatenate((self.record, np.expand_dims(self.board_array,1)),axis=1)
+        self.evaluate_victory()
+    
+    def evolve_from_pgn(self,pgndata,print_for_human=False,delay=0):
+        """
+        Evolves the board over the pgn (takes output of pgn.read_game(), this should be passed elsewhere),
+        accordingly storing all of the game states 
+        ----------
+        Inputs:
+        pgndata = an output of pgn.read_game()
 
+        -------------
+        Outputs:
+        self.board, self.board_array, and self.record are appropriately updated to reflect the development of this game
+        """
+        for move in pgndata.mainline_moves():
+            self.evolve_board(move,move_type="std")
+            self.record = np.concatenate((self.record, np.expand_dims(self.board_array,1)),axis=1)
+            if print_for_human:
+                print(self.board)
+                print("\n")
+            if delay:
+                time.sleep(delay)
+        self.evaluate_victory(victory_str=pgndata.headers["Result"])
+    
+    def evaluate_victory(self,victory_str=None):
+        """
+        Assigns a victory value
+        ------------
+        Inputs:
+        An evolved self.board OR victory_str, which is the result string from a pgn
+
+        --------------
+        Outputs:
+        self.victory = 1 if white wins, -1 if black wins, 0 if draw
+
+
+        """
+        if victory_str:
+            result_str = victory_str
+        else:
+            result_str = self.board.result()
+        if result_str == "1-0":
+            self.victory = 1
+        elif result_str == "0-1":
+            self.victory = -1
+        elif result_str == "1/2-1/2":
+            self.victory = 0
+        else:
+            print("Failed to correctly evaluate victory condition")
+            print(result_str)
+
+#class 
 
 
 
@@ -263,5 +302,15 @@ print(square_to_int("h1"))
 #print(test)
 #print(test.fen)
 test = Bots_Board()
-#test.read_game("stockfish_v_stockfish.txt",print_for_human=False,delay=0)
-test.read_game("2005-12.bare.[534].pgn",print_for_human=True,delay=5,file_type="PGN")
+test.read_game_competition("stockfish_v_stockfish.txt",print_for_human=False,delay=0)
+#print(test.board)
+#print(test.victory)
+with open("2005-12.bare.[534].pgn","r") as f:
+    test_pgn_1 = chess.pgn.read_game(f)
+    test_pgn_2 = chess.pgn.read_game(f)
+test_pgn_1_board = Bots_Board()
+test_pgn_2_board = Bots_Board()
+test_pgn_1_board.evolve_from_pgn(test_pgn_1,print_for_human=True,delay=0)
+print(test_pgn_1_board.victory)
+test_pgn_2_board.evolve_from_pgn(test_pgn_2,print_for_human=True,delay=0)
+print(test_pgn_2_board.victory)
