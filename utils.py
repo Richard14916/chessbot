@@ -224,7 +224,7 @@ class Bots_Board:
             if delay:
                 time.sleep(delay)
             self.record = np.concatenate((self.record, np.expand_dims(self.board_array,1)),axis=1)
-        self.evaluate_victory()
+        return self.evaluate_victory()
     
     def evolve_from_pgn(self,pgndata,print_for_human=False,delay=0):
         """
@@ -246,7 +246,7 @@ class Bots_Board:
                 print("\n")
             if delay:
                 time.sleep(delay)
-        self.evaluate_victory(victory_str=pgndata.headers["Result"])
+        return self.evaluate_victory(victory_str=pgndata.headers["Result"])
     
     def evaluate_victory(self,victory_str=None):
         """
@@ -258,8 +258,6 @@ class Bots_Board:
         --------------
         Outputs:
         self.victory = 1 if white wins, -1 if black wins, 0 if draw
-
-
         """
         if victory_str:
             result_str = victory_str
@@ -267,15 +265,59 @@ class Bots_Board:
             result_str = self.board.result()
         if result_str == "1-0":
             self.victory = 1
+            return self.victory
         elif result_str == "0-1":
             self.victory = -1
+            return self.victory
         elif result_str == "1/2-1/2":
             self.victory = 0
+            return self.victory
         else:
             print("Failed to correctly evaluate victory condition")
             print(result_str)
+        
 
-#class 
+class Training_Data_From_PGN:
+    def __init__(self,filename,encoding="ASCII"):
+        """
+        Inputs:
+        filename = a filename for a pgn with many games in it
+        encoding = the encoding
+
+        Outputs:
+        -------------
+        self.pgn_data = a list containing *many* games with pgn data a la chess.Game
+        """
+        self.pgn_game_list = []
+        with open(filename,"r") as f:
+            while True:
+                read = chess.pgn.read_game(f)
+                if read != None:
+                    self.pgn_game_list += [read]
+                else:
+                    break
+    
+    def produce_record_data(self):
+        """
+        turns the data that has been read into record arrays with a label list of win/loss/draw
+        ------------
+        Inputs:
+        self.pgn_game_list
+        ----------------
+        Outputs:
+        self.record_meta_array = a meta array of all of 
+
+        """
+
+        for i,game in enumerate(self.pgn_game_list):
+            game_board = Bots_Board()
+            result = game_board.evolve_from_pgn(game)
+            if i == 0:
+                self.record_meta_array = np.expand_dims(game_board.record,2)
+                self.result_meta_list = [result]
+            else:
+                self.record_meta_array = np.concatenate((self.record_meta_array,np.expand_dims(game_board.record,2)),axis=2)
+                self.result_meta_list += [result]
 
 
 
@@ -292,7 +334,7 @@ print(square_to_int("e3"))
 print(square_to_int("h3"))
 print(square_to_int("a1"))
 print(square_to_int("h1"))
-"""
+
 #test_board = chess.Board()
 #test = translate_board_to_array(test_board)
 #print(translate_array_to_board(test))
@@ -301,10 +343,11 @@ print(square_to_int("h1"))
 #test = translate_array_to_board(test_array)
 #print(test)
 #print(test.fen)
-test = Bots_Board()
-test.read_game_competition("stockfish_v_stockfish.txt",print_for_human=False,delay=0)
+#test = Bots_Board()
+#test.read_game_competition("stockfish_v_stockfish.txt",print_for_human=False,delay=0)
 #print(test.board)
 #print(test.victory)
+
 with open("2005-12.bare.[534].pgn","r") as f:
     test_pgn_1 = chess.pgn.read_game(f)
     test_pgn_2 = chess.pgn.read_game(f)
@@ -314,3 +357,10 @@ test_pgn_1_board.evolve_from_pgn(test_pgn_1,print_for_human=True,delay=0)
 print(test_pgn_1_board.victory)
 test_pgn_2_board.evolve_from_pgn(test_pgn_2,print_for_human=True,delay=0)
 print(test_pgn_2_board.victory)
+"""
+
+test = Training_Data_From_PGN("2005-12.bare.[534].pgn")
+test.produce_record_data()
+print(test.record_meta_array)
+print(test.record_meta_array.shape)
+print(test.result_meta_list)
