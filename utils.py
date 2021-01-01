@@ -278,7 +278,7 @@ class Bots_Board:
         
 
 class Training_Data_From_PGN:
-    def __init__(self,filename,encoding="ASCII"):
+    def __init__(self,filename,encoding="ASCII",count_reads=False):
         """
         Inputs:
         filename = a filename for a pgn with many games in it
@@ -290,14 +290,20 @@ class Training_Data_From_PGN:
         """
         self.pgn_game_list = []
         with open(filename,"r") as f:
+            if count_reads:
+                i = 0
             while True:
+                if count_reads:
+                    if i%10000 == 0:
+                        print(i)
+                    i+= 1
                 read = chess.pgn.read_game(f)
                 if read != None:
                     self.pgn_game_list += [read]
                 else:
                     break
     
-    def produce_record_data(self):
+    def produce_record_data(self,watch_progress=False):
         """
         turns the data that has been read into record arrays with a label list of win/loss/draw
         ------------
@@ -312,16 +318,19 @@ class Training_Data_From_PGN:
         to the game states that ultimately generate them and len(self.result_meta_list) == self.record_meta_array.shape[1]
 
         """
+        print("producing record")
         for i,game in enumerate(self.pgn_game_list):
             game_board = Bots_Board()
             result = game_board.evolve_from_pgn(game)
+            print("produced result")
             if i == 0:
                 self.record_meta_array = game_board.record
                 self.result_meta_list = [result]*game_board.record.shape[1]
             else:
                 self.record_meta_array = np.concatenate((self.record_meta_array,game_board.record),axis=1)
                 self.result_meta_list += [result]*game_board.record.shape[1]
-
+            if watch_progress:
+                print(self.record_meta_array.shape)
 
 
 
@@ -361,7 +370,7 @@ print(test_pgn_1_board.victory)
 test_pgn_2_board.evolve_from_pgn(test_pgn_2,print_for_human=True,delay=0)
 print(test_pgn_2_board.victory)
 """
-test = Training_Data_From_PGN("2005-12.bare.[534].pgn")
-test.produce_record_data()
-print(test.record_meta_array.shape)
-print(len(test.result_meta_list))
+#test = Training_Data_From_PGN("2005-12.bare.[534].pgn")
+#test.produce_record_data()
+#print(test.record_meta_array.shape)
+#print(len(test.result_meta_list))

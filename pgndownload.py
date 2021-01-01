@@ -11,6 +11,8 @@ import os
 import requests
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 from zipfile import ZipFile
+import utils
+import numpy as np
 
 #making file name
 
@@ -52,11 +54,38 @@ def save_response_content(response, destination):
                 f.write(chunk)
                 
 #download file
-download_file_from_google_drive(file_id, zippath)
+#download_file_from_google_drive(file_id, zippath)
+
 
 
 #RELEASE THE UNZIPPER
-with ZipFile(zipname, 'r') as zippy:
-    zippy.extractall(scriptdir)
+#with ZipFile(zippath, 'r') as zippy:
+#    zippy.extractall(scriptdir)
 
 
+pgndir = os.path.join(scriptdir,zipname.split(".")[0])
+pgnslist = os.listdir(pgndir)
+processed_out = pgndir+"_processed"
+try:
+    os.mkdir(processed_out)
+except:
+    pass
+
+
+for i,pgn in enumerate(pgnslist):
+    print("beginning")
+    fpath = os.path.join(pgndir,pgn)
+    print(fpath)
+    data = utils.Training_Data_From_PGN(fpath,count_reads=True)
+    data.produce_record_data(watch_progress=True)
+    new_fname_base = pgn.split(".")[0]
+    np.savetxt(os.path.join(processed_out,new_fname_base+"_data"),data.record_meta_array)
+    np.savetxt(os.path.join(processed_out,new_fname_base+"_labels"),data.result_meta_list)
+    if i == 0:
+        mega_data = data.record_meta_array
+        mega_labels = data.result_meta_list
+    else:
+        mega_data = np.concatenate((mega_data,data.record_meta_array),axis=1)
+        mega_labels += data.result_meta_list
+np.savetxt(os.path.join(processed_out,"mega_data"),mega_data)
+np.savetxt(os.path.join(processed_out,"mega_labels"),mega_data)
