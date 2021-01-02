@@ -278,7 +278,7 @@ class Bots_Board:
         
 
 class Training_Data_From_PGN:
-    def __init__(self,filename,encoding="ASCII",count_reads=False):
+    def __init__(self,filename,encoding="ASCII",count_reads=False,pick_up_where_you_left_off=0):
         """
         Inputs:
         filename = a filename for a pgn with many games in it
@@ -297,13 +297,18 @@ class Training_Data_From_PGN:
                     if i%10000 == 0:
                         print(i)
                     i+= 1
-                read = chess.pgn.read_game(f)
+                if i>=pick_up_where_you_left_off:
+                    read = chess.pgn.read_game(f)
+                else:
+                    chess.pgn.skip_game(f)
                 if read != None:
                     self.pgn_game_list += [read]
+                elif i<pick_up_where_you_left_off:
+                    continue
                 else:
                     break
     
-    def produce_record_data(self,watch_progress=False):
+    def produce_record_data(self,watch_progress=False,write_save_path_base=None):
         """
         turns the data that has been read into record arrays with a label list of win/loss/draw
         ------------
@@ -318,12 +323,11 @@ class Training_Data_From_PGN:
         to the game states that ultimately generate them and len(self.result_meta_list) == self.record_meta_array.shape[1]
 
         """
-        print("producing record")
         for i,game in enumerate(self.pgn_game_list):
             game_board = Bots_Board()
             result = game_board.evolve_from_pgn(game)
-            print("produced result")
             if i == 0:
+                previndex = 0
                 self.record_meta_array = game_board.record
                 self.result_meta_list = [result]*game_board.record.shape[1]
             else:
@@ -331,8 +335,29 @@ class Training_Data_From_PGN:
                 self.result_meta_list += [result]*game_board.record.shape[1]
             if watch_progress:
                 print(self.record_meta_array.shape)
+            if write_save_path_base and i%1000 == 0:
+                np.save(write_save_path_base+"_data_"+str(i//1000),self.record_meta_array[:,previndex:])
+                np.save(write_save_path_base+"_labels_"+str(i//1000),self.result_meta_list[previndex:])
+                previndex = len(self.result_meta_list)
 
+class Load_Processed_Training:
+    def __init__(self,data_path_list,label_path_list):
+        for i,datapath in enumerate(data_path_list):
+            data = np.load(datapath,dtype=int)
+            labels = np.load(label_path_list[i])
+            if i == 0:
+                self.data = data
+                self.labels = labels
+            else:
+                self.data = np.concatenate((self.data,data),axis=1)
+                self.labels = self.labels+labels
+        #normalizing the data
+        self.data[5,:] = self.data[5,:]/64
+        self.data[6,:] = self.data[6,:]/50
+        self.data[7,:] = self.data[7,:]/1000
+        self.data[8:,:] = self.data[8:,:]/12
 
+        
 
 
     
